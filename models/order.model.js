@@ -54,8 +54,7 @@ const orderSchema = new mongoose.Schema({
 			is_kit: Boolean,
 			picklists: [
 				{
-					picklist_id:
-						mongoose.Schema.Types.ObjectId,
+					picklist_id: mongoose.Schema.Types.ObjectId,
 					picklist_code: Number,
 				},
 			],

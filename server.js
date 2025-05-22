@@ -8,8 +8,10 @@ require("dotenv").config()
 const Order = require("./models/order.model")
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-	.then(() => console.log("MongoDB connected"))
+mongoose.connect(process.env.MONGO_URI, {
+	dbName: "outbound",
+})
+	.then(() => console.log("MongoDB connected to database: database_name"))
 	.catch((err) => console.error(err))
 
 const graphqlSchema = `
@@ -106,9 +108,7 @@ const resolvers = {
 			}
 
 			if (filter.created_at_end) {
-				query.created_at.$lte = new Date(
-					filter.created_at_end
-				)
+				query.created_at.$lte = new Date(filter.created_at_end)
 			}
 
 			if (filter.closed_at_start) {
@@ -118,9 +118,7 @@ const resolvers = {
 			}
 
 			if (filter.closed_at_end) {
-				query.closed_at.$lte = new Date(
-					filter.closed_at_end
-				)
+				query.closed_at.$lte = new Date(filter.closed_at_end)
 			}
 
 			if (filter.item_name) {
@@ -159,9 +157,7 @@ app.post("/generate-query", express.json(), async (req, res) => {
 	const graphqlQuery = await generateGraphQLQuery(userInput)
 
 	if (!graphqlQuery) {
-		return res
-			.status(500)
-			.send({ error: "Failed to generate GraphQL query" })
+		return res.status(500).send({ error: "Failed to generate GraphQL query" })
 	}
 
 	res.send({ graphqlQuery })
@@ -183,9 +179,7 @@ const generateGraphQLQuery = async (userInput) => {
 					},
 					{
 						role: "user",
-						content: `Schema:\n${schemaContext}\n\nGenerate a GraphQL query using a filter argument with the following conditions: ${JSON.stringify(
-							userInput
-						)}`,
+						content: `Schema:\n${schemaContext}\n\nGenerate a GraphQL query using a filter argument with the following conditions: ${JSON.stringify(userInput)}`,
 					},
 				],
 			},
@@ -198,8 +192,7 @@ const generateGraphQLQuery = async (userInput) => {
 		)
 
 		// Extract and clean the query
-		let graphqlQuery =
-			response.data.choices[0].message.content.trim()
+		let graphqlQuery = response.data.choices[0].message.content.trim()
 
 		// Ensure filter key is properly formatted
 		graphqlQuery = graphqlQuery
@@ -245,6 +238,31 @@ app.post("/fetch-orders", express.json(), async (req, res) => {
 	} catch (error) {
 		console.error("Error in fetching orders:", error.message)
 		res.status(500).send({ error: "Failed to fetch orders" })
+	}
+})
+
+// create a rest API to get an order by code
+app.get("/orders/:code", async (req, res) => {
+	const { code } = req.params
+
+	if (!code) {
+		return res.status(400).send({ error: "Order ID is required" })
+	}
+
+	try {
+		const order = await Order.findOne({ code: parseInt(code) })
+
+		// Log the total count of orders for debugging
+		const orderCount = await Order.countDocuments()
+		console.log("Total orders in the database:", orderCount)
+
+		if (!order) {
+			return res.status(404).send({ error: "Order not found" })
+		}
+		res.send(order)
+	} catch (error) {
+		console.error("Error fetching order:", error.message)
+		res.status(500).send({ error: "Failed to fetch order" })
 	}
 })
 
